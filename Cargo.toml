@@ -1,0 +1,46 @@
+[package]
+name = "bevy_camera_remote"
+version = "0.1.0"
+edition = "2024"
+rust-version = "1.97.1"
+description = "Drive a Bevy app's 3D camera over the Bevy Remote Protocol: pose, field of view, depth of field, and frame-exact PNG capture."
+license = "MIT OR Apache-2.0"
+keywords = ["bevy", "camera", "remote", "capture"]
+categories = ["game-development", "rendering"]
+
+[features]
+default = ["dof"]
+# Depth of field through `bevy_post_process`. Without it, a `dof` object is an error.
+dof = ["bevy/bevy_post_process"]
+
+[dependencies]
+bevy = { version = "0.20", default-features = false, features = [
+    "std",
+    "bevy_asset",
+    "bevy_core_pipeline",
+    "bevy_image",
+    "bevy_log",
+    "bevy_remote",
+    "bevy_render",
+    "png",
+] }
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+
+[dev-dependencies]
+bevy = { version = "0.20", default-features = false, features = [
+    "default_app",
+    "std",
+    "multi_threaded",
+    "bevy_winit",
+    "bevy_window",
+    "bevy_pbr",
+    "bevy_post_process",
+    "tonemapping_luts",
+    "ktx2",
+    "zstd_rust",
+] }
+
+# Optimised dependencies keep the demo and its PNG encoding quick in debug builds.
+[profile.dev.package."*"]
+opt-level = 3
