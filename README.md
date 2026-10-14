@@ -141,7 +141,7 @@ The plugin works in this order:
 
 1. It applies the camera and sends the seek.
 2. It points the camera at a new offscreen image of `size`. This clears any viewport and
-   activates the camera.
+   activates the camera, and keeps them so every frame until the shot.
 3. It waits `settle_frames`, and also until the renderer has the image and no shader is
    still compiling. This keeps the first capture complete.
 4. It takes the image, writes an opaque 8-bit sRGB PNG, and gives the camera back its own
@@ -201,9 +201,10 @@ Ctrl-C in its terminal quits cleanly. So does BRP's own
 - **Only the driven camera is in the image.** Other cameras that draw to the window, such as
   a UI camera, are not captured.
 - **The window loses that camera during a capture**, while it renders offscreen.
-- **The hold runs in `PostUpdate`**, before transform propagation and the camera update.
-  Camera control in `Update` (the usual place) is overridden. A system that moves the camera
-  later in `PostUpdate` wins.
+- **The hold runs in `PostUpdate`**, in `CameraRemoteSystems`, before transform propagation
+  and the camera update. Camera control in `Update` (the usual place) is overridden. Camera
+  control that writes the camera in `PostUpdate` must run before the set, or it wins:
+  `app.configure_sets(PostUpdate, CameraRemoteSystems.after(MyCameraSystems))`.
 - **Parented cameras** are held in world space. The plugin uses the parent's
   `GlobalTransform` from the previous frame, so a moving parent lags one frame.
 - **Setting a pose resets the camera's scale to 1.**

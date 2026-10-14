@@ -209,6 +209,23 @@ pub(crate) fn tick(mut state: ResMut<Capture>) {
     state.tick = state.tick.wrapping_add(1);
 }
 
+/// Keeps a capture's camera whole and active until the shot, in `PostUpdate`, against an
+/// app that sets the camera's viewport or activity every frame (from a UI pane, say).
+pub(crate) fn keep(state: Res<Capture>, mut cameras: Query<&mut Camera>) {
+    let Some(job) = state.job.as_ref().filter(|j| j.restore.is_some()) else {
+        return;
+    };
+    let Ok(mut camera) = cameras.get_mut(job.camera) else {
+        return;
+    };
+    if camera.viewport.is_some() {
+        camera.viewport = None;
+    }
+    if !camera.is_active {
+        camera.is_active = true;
+    }
+}
+
 /// Moves the capture along, in `Last`: settle, wait for the renderer, then shoot.
 pub(crate) fn advance(world: &mut World) {
     let frame = world.get_resource::<FrameCount>().map_or(0, |f| f.0);

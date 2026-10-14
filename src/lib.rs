@@ -87,18 +87,30 @@ pub struct RemoteSeek {
     pub seconds: f64,
 }
 
+/// The `PostUpdate` systems that re-apply each held camera and keep a capture's camera
+/// whole and active on its image. They run before transform propagation and the camera
+/// update. Camera control that writes the camera in `PostUpdate` (after a UI pass, say)
+/// runs before this set, or it wins: `app.configure_sets(PostUpdate,
+/// CameraRemoteSystems.after(MyCameraSystems))`.
+#[derive(SystemSet, Clone, Copy, Debug, PartialEq, Eq, Hash)]
+pub struct CameraRemoteSystems;
+
 impl Plugin for CameraRemotePlugin {
     fn build(&self, app: &mut App) {
         app.insert_resource(self.frame)
             .init_resource::<capture::Capture>()
             .add_message::<RemoteSeek>()
             .register_type::<RemoteCamera>()
+            .configure_sets(
+                PostUpdate,
+                CameraRemoteSystems
+                    .before(TransformSystems::Propagate)
+                    .before(CameraUpdateSystems),
+            )
             .add_systems(First, capture::tick)
             .add_systems(
                 PostUpdate,
-                hold_systems()
-                    .before(TransformSystems::Propagate)
-                    .before(CameraUpdateSystems),
+                (hold_systems(), capture::keep).in_set(CameraRemoteSystems),
             )
             .add_systems(Last, capture::advance);
     }
@@ -302,6 +314,20 @@ mod tests {
         let got = call(&mut app, methods::GET, json!({})).unwrap();
         assert!(near(&got["eye"], [9.0, -9.0, 9.0]));
         assert_eq!(got["hold"], false);
+    }
+
+    #[test]
+    fn hold_beats_post_update_control_ordered_before_the_set() {
+        let mut app = app(WorldFrame::ZUp);
+        let entity = camera(&mut app, "c");
+        let drift = move |mut cameras: Query<&mut Transform>| {
+            *cameras.get_mut(entity).unwrap() = Transform::from_xyz(9.0, 9.0, 9.0);
+        };
+        app.add_systems(PostUpdate, drift.before(CameraRemoteSystems));
+        call(&mut app, methods::SET, shot()).unwrap();
+        app.update();
+        let t = app.world().get::<Transform>(entity).unwrap().translation;
+        assert!(t.distance(Vec3::new(4.5, 1.6, -0.05)) < 1e-6);
     }
 
     #[test]
